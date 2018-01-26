@@ -34,6 +34,8 @@ import de.robv.android.xposed.XposedBridge.CopyOnWriteSortedSet;
 import de.robv.android.xposed.callbacks.XC_LayoutInflated;
 import de.robv.android.xposed.callbacks.XC_LayoutInflated.LayoutInflatedParam;
 import de.robv.android.xposed.callbacks.XCallback;
+import xposed.dummy.XResourcesSuperClass;
+import xposed.dummy.XTypedArraySuperClass;
 
 import static de.robv.android.xposed.XposedHelpers.decrementMethodDepth;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
@@ -50,7 +52,7 @@ import static de.robv.android.xposed.XposedHelpers.incrementMethodDepth;
  * be set using the methods made available via the API methods in this class.
  */
 @SuppressWarnings("JniMissingFunction")
-public class XResources extends MiuiResources {
+public class XResources extends XResourcesSuperClass {
 	private static final SparseArray<HashMap<String, Object>> sReplacements = new SparseArray<>();
 	private static final SparseArray<HashMap<String, ResourceNames>> sResourceNames = new SparseArray<>();
 
@@ -80,7 +82,6 @@ public class XResources extends MiuiResources {
 
 	/** Dummy, will never be called (objects are transferred to this class only). */
 	private XResources() {
-		super(null, null, null);
 		throw new UnsupportedOperationException();
 	}
 
@@ -1252,27 +1253,16 @@ public class XResources extends MiuiResources {
 	 * Mainly used when inflating layouts.
 	 * @hide
 	 */
-	public static class XTypedArray extends TypedArray {
-		private boolean mIsObjectInited;
-		private XResources mRes;
-
+	public static class XTypedArray extends XTypedArraySuperClass {
 		/** Dummy, will never be called (objects are transferred to this class only). */
 		private XTypedArray() {
 			super(null, null, null, 0);
 			throw new UnsupportedOperationException();
 		}
 
-		public void initObject(XResources res) {
-			if (mIsObjectInited)
-				throw new IllegalStateException("Object has already been initialized");
-
-			this.mRes = res;
-			this.mIsObjectInited = true;
-		}
-
 		@Override
 		public boolean getBoolean(int index, boolean defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof Boolean) {
 				return (Boolean) replacement;
 			} else if (replacement instanceof XResForwarder) {
@@ -1285,7 +1275,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getColor(int index, int defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof Integer) {
 				return (Integer) replacement;
 			} else if (replacement instanceof XResForwarder) {
@@ -1298,7 +1288,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public ColorStateList getColorStateList(int index) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof ColorStateList) {
 				return (ColorStateList) replacement;
 			} else if (replacement instanceof Integer) {
@@ -1321,7 +1311,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public float getDimension(int index, float defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1332,7 +1322,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getDimensionPixelOffset(int index, int defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1343,7 +1333,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getDimensionPixelSize(int index, int defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1355,10 +1345,11 @@ public class XResources extends MiuiResources {
 		@Override
 		public Drawable getDrawable(int index) {
 			final int resId = getResourceId(index, 0);
-			Object replacement = mRes.getReplacement(resId);
+			XResources xres = (XResources) getResources();
+			Object replacement = xres.getReplacement(resId);
 			if (replacement instanceof DrawableLoader) {
 				try {
-					Drawable result = ((DrawableLoader) replacement).newDrawable(mRes, resId);
+					Drawable result = ((DrawableLoader) replacement).newDrawable(xres, resId);
 					if (result != null)
 						return result;
 				} catch (Throwable t) { XposedBridge.log(t); }
@@ -1374,7 +1365,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public float getFloat(int index, float defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1386,7 +1377,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public float getFraction(int index, int base, int pbase, float defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1398,7 +1389,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getInt(int index, int defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof Integer) {
 				return (Integer) replacement;
 			} else if (replacement instanceof XResForwarder) {
@@ -1411,7 +1402,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getInteger(int index, int defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof Integer) {
 				return (Integer) replacement;
 			} else if (replacement instanceof XResForwarder) {
@@ -1424,7 +1415,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getLayoutDimension(int index, int defValue) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1435,7 +1426,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public int getLayoutDimension(int index, String name) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof XResForwarder) {
 				Resources repRes = ((XResForwarder) replacement).getResources();
 				int repId = ((XResForwarder) replacement).getId();
@@ -1446,7 +1437,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public String getString(int index) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof CharSequence) {
 				return replacement.toString();
 			} else if (replacement instanceof XResForwarder) {
@@ -1459,7 +1450,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public CharSequence getText(int index) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof CharSequence) {
 				return (CharSequence) replacement;
 			} else if (replacement instanceof XResForwarder) {
@@ -1472,7 +1463,7 @@ public class XResources extends MiuiResources {
 
 		@Override
 		public CharSequence[] getTextArray(int index) {
-			Object replacement = mRes.getReplacement(getResourceId(index, 0));
+			Object replacement = ((XResources) getResources()).getReplacement(getResourceId(index, 0));
 			if (replacement instanceof CharSequence[]) {
 				return (CharSequence[]) replacement;
 			} else if (replacement instanceof XResForwarder) {

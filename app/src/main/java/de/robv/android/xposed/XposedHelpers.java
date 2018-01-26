@@ -3,24 +3,33 @@ package de.robv.android.xposed;
 import android.content.res.AssetManager;
 import android.content.res.Resources;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.ZipFile;
 
+import dalvik.system.DexFile;
 import external.org.apache.commons.lang3.ClassUtils;
 import external.org.apache.commons.lang3.reflect.MemberUtils;
 
@@ -266,9 +275,7 @@ public final class XposedHelpers {
 	public static Method findMethodExactIfExists(Class<?> clazz, String methodName, Object... parameterTypes) {
 		try {
 			return findMethodExact(clazz, methodName, parameterTypes);
-		} catch (NoSuchMethodError e) {
-			return null;
-		} catch (ClassNotFoundError e) {
+		} catch (ClassNotFoundError | NoSuchMethodError e) {
 			return null;
 		}
 	}
@@ -306,9 +313,7 @@ public final class XposedHelpers {
 	public static Method findMethodExactIfExists(String className, ClassLoader classLoader, String methodName, Object... parameterTypes) {
 		try {
 			return findMethodExact(className, classLoader, methodName, parameterTypes);
-		} catch (NoSuchMethodError e) {
-			return null;
-		} catch (ClassNotFoundError e) {
+		} catch (ClassNotFoundError | NoSuchMethodError e) {
 			return null;
 		}
 	}
@@ -554,9 +559,7 @@ public final class XposedHelpers {
 	public static Constructor<?> findConstructorExactIfExists(Class<?> clazz, Object... parameterTypes) {
 		try {
 			return findConstructorExact(clazz, parameterTypes);
-		} catch (NoSuchMethodError e) {
-			return null;
-		} catch (ClassNotFoundError e) {
+		} catch (ClassNotFoundError | NoSuchMethodError e) {
 			return null;
 		}
 	}
@@ -576,9 +579,7 @@ public final class XposedHelpers {
 	public static Constructor<?> findConstructorExactIfExists(String className, ClassLoader classLoader, Object... parameterTypes) {
 		try {
 			return findConstructorExact(className, classLoader, parameterTypes);
-		} catch (NoSuchMethodError e) {
-			return null;
-		} catch (ClassNotFoundError e) {
+		} catch (ClassNotFoundError | NoSuchMethodError e) {
 			return null;
 		}
 	}
@@ -722,6 +723,49 @@ public final class XposedHelpers {
 		/** @hide */
 		public ClassNotFoundError(String detailMessage, Throwable cause) {
 			super(detailMessage, cause);
+		}
+	}
+
+	/**
+	 * Returns the index of the first parameter declared with the given type.
+	 *
+	 * @throws NoSuchFieldError if there is no parameter with that type.
+	 * @hide
+	 */
+	public static int getFirstParameterIndexByType(Member method, Class<?> type) {
+		Class<?>[] classes = (method instanceof  Method) ?
+				((Method) method).getParameterTypes() : ((Constructor) method).getParameterTypes();
+		for (int i = 0 ; i < classes.length; i++) {
+			if (classes[i] == type) {
+				return i;
+			}
+		}
+		throw new NoSuchFieldError("No parameter of type " + type + " found in " + method);
+	}
+
+	/**
+	 * Returns the index of the parameter declared with the given type, ensuring that there is exactly one such parameter.
+	 *
+	 * @throws NoSuchFieldError if there is no or more than one parameter with that type.
+	 * @hide
+	 */
+	public static int getParameterIndexByType(Member method, Class<?> type) {
+		Class<?>[] classes = (method instanceof  Method) ?
+				((Method) method).getParameterTypes() : ((Constructor) method).getParameterTypes();
+		int idx = -1;
+		for (int i = 0 ; i < classes.length; i++) {
+			if (classes[i] == type) {
+				if (idx == -1) {
+					idx = i;
+				} else {
+					throw new NoSuchFieldError("More than one parameter of type " + type + " found in " + method);
+				}
+			}
+		}
+		if (idx != -1) {
+			return idx;
+		} else {
+			throw new NoSuchFieldError("No parameter of type " + type + " found in " + method);
 		}
 	}
 
@@ -1480,8 +1524,10 @@ public final class XposedHelpers {
 	 * @return The content of the asset.
 	 */
 	public static byte[] assetAsByteArray(Resources res, String path) throws IOException {
-		InputStream is = res.getAssets().open(path);
+		return inputStreamToByteArray(res.getAssets().open(path));
+	}
 
+	/*package*/ static byte[] inputStreamToByteArray(InputStream is) throws IOException {
 		ByteArrayOutputStream buf = new ByteArrayOutputStream();
 		byte[] temp = new byte[1024];
 		int read;
@@ -1491,6 +1537,39 @@ public final class XposedHelpers {
 		}
 		is.close();
 		return buf.toByteArray();
+	}
+
+	/**
+	 * Invokes the {@link Closeable#close()} method, ignoring IOExceptions.
+	 */
+	/*package*/ static void closeSilently(Closeable c) {
+		if (c != null) {
+			try {
+				c.close();
+			} catch (IOException ignored) {}
+		}
+	}
+
+	/**
+	 * Invokes the {@link DexFile#close()} method, ignoring IOExceptions.
+	 */
+	/*package*/ static void closeSilently(DexFile dexFile) {
+		if (dexFile != null) {
+			try {
+				dexFile.close();
+			} catch (IOException ignored) {}
+		}
+	}
+
+	/**
+	 * Invokes the {@link ZipFile#close()} method, ignoring IOExceptions.
+	 */
+	/*package*/ static void closeSilently(ZipFile zipFile) {
+		if (zipFile != null) {
+			try {
+				zipFile.close();
+			} catch (IOException ignored) {}
+		}
 	}
 
 	/**
@@ -1566,6 +1645,70 @@ public final class XposedHelpers {
 			}
 			return counter;
 		}
+	}
+
+	/*package*/ static boolean fileContains(File file, String str) throws IOException {
+		// There are certainly more efficient algorithms (e.g. Boyer-Moore used in grep),
+		// but the naive approach should be sufficient here.
+		BufferedReader in = null;
+		try {
+			in = new BufferedReader(new FileReader(file));
+			String line;
+			while ((line = in.readLine()) != null) {
+				if (line.contains(str)) {
+					return true;
+				}
+			}
+			return false;
+		} finally {
+			closeSilently(in);
+		}
+	}
+
+	//#################################################################################################
+
+	/**
+	 * Returns the method that is overridden by the given method.
+	 * It returns {@code null} if the method doesn't override another method or if that method is
+	 * abstract, i.e. if this is the first implementation in the hierarchy.
+	 */
+	/*package*/ static Method getOverriddenMethod(Method method) {
+		int modifiers = method.getModifiers();
+		if (Modifier.isStatic(modifiers) || Modifier.isPrivate(modifiers)) {
+			return null;
+		}
+
+		String name = method.getName();
+		Class<?>[] parameters = method.getParameterTypes();
+		Class<?> clazz = method.getDeclaringClass().getSuperclass();
+		while (clazz != null) {
+			try {
+				Method superMethod = clazz.getDeclaredMethod(name, parameters);
+				modifiers = superMethod.getModifiers();
+				if (!Modifier.isPrivate(modifiers) && !Modifier.isAbstract(modifiers)) {
+					return superMethod;
+				} else {
+					return null;
+				}
+			} catch (NoSuchMethodException ignored) {
+				clazz = clazz.getSuperclass();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Returns all methods which this class overrides.
+	 */
+	/*package*/ static Set<Method> getOverriddenMethods(Class<?> clazz) {
+		Set<Method> methods = new HashSet<>();
+		for (Method method : clazz.getDeclaredMethods()) {
+			Method overridden = getOverriddenMethod(method);
+			if (overridden != null) {
+				methods.add(overridden);
+			}
+		}
+		return methods;
 	}
 
 	//#################################################################################################
